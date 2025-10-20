@@ -1,6 +1,6 @@
 import numpy as np
 from itertools import product
-
+import inspect
 
 class GaussTable:
     def __init__(self, N : int):
@@ -32,10 +32,10 @@ class GaussTable:
         return x_k, A_k
     
 class GaussIntegral:
-    def __init__(self, N: int, function, dim: int):
+    def __init__(self, N: int, function):
         self.N = N
         self.function = function
-        self.dim = dim
+        self.dim = len(inspect.signature(function).parameters)
         self.gauss_table = GaussTable(N)
 
     def integrate(self):    
@@ -52,3 +52,4 @@ class GaussIntegral:
             
             integration_value += w * self.function(*coord)
         return integration_value
+    
