@@ -3,9 +3,8 @@ from gauss_integrations import DerivativeCoordinates
 
 if __name__ == "__main__":
     data = GlobalData("Test1_4_4.txt")
-
     jacobian = DerivativeCoordinates(data.elements, data.nodes)
-
+    jacobian.print_jakobian()
 
     # for element in data.elements:
     #     print(f"Element ID: {element.id}, Nodes IDs: {element.nodes_id}")
