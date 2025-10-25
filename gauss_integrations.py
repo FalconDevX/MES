@@ -14,7 +14,7 @@ class GaussTable:
             x_k = [0.0]
             A_k = [2.0]
         elif N == 2:
-            x_k = [1/np.sqrt(3), -1/np.sqrt(3)]
+            x_k = [-1/np.sqrt(3), 1/np.sqrt(3)]
             A_k = [1.0, 1.0]
         elif N == 3:
             x_k = [np.sqrt(3/5), 0.0, -np.sqrt(3/5)]
@@ -32,10 +32,11 @@ class GaussTable:
             raise ValueError("Wrong argument N. Supported values are 1, 2, 3, 4.")
 
         return x_k, A_k
-    
+
+#całkwoanie metoda gasussa
 class GaussIntegral:
     def __init__(self, N: int, function):
-        self.N = N + 1
+        self.N = N 
         self.function = function
         self.dim = len(inspect.signature(function).parameters)
         self.gauss_table = GaussTable(self.N)
@@ -56,6 +57,7 @@ class GaussIntegral:
             integration_value += w * self.function(*coord)
         return integration_value
     
+#tabele pochodnych funkcji ksztaltu po ksi i eta
 class DerivativeTable:
     def __init__(self):
         self.derivatives_ksi, self.derivatives_eta = self.generate_derivative_table()
@@ -66,6 +68,8 @@ class DerivativeTable:
         gauss_nodes = GaussTable(2).nodes
 
         gauss_points = list(product(gauss_nodes, repeat=2))
+        
+        print(gauss_points)
 
         def dN_dksi(eta):
             return [
@@ -83,22 +87,32 @@ class DerivativeTable:
                 0.25 * (1 - ksi)
             ]
 
-        for i in range(derivatives_ksi.size):
-            value = dN_dksi(gauss_points[i//4][1])
-            derivatives_ksi.flat[i] = value[i%4]
+        for i, (ksi, eta) in enumerate(gauss_points):
+            dNksi = dN_dksi(eta)
+            dNeta = dN_deta(ksi)
+            derivatives_ksi[i, :] = dNksi
+            derivatives_eta[i, :] = dNeta
 
-        for i in range(derivatives_eta.size):
-            value = dN_deta(gauss_points[i//4][0])
-            derivatives_eta.flat[i] = value[i%4]
+        # for i in range(derivatives_ksi.size):
+        #     value = dN_dksi(gauss_points[i//4][1])
+        #     derivatives_ksi.flat[i] = value[i%4]
+
+        # for i in range(derivatives_eta.size):
+        #     value = dN_deta(gauss_points[i//4][0])
+        #     derivatives_eta.flat[i] = value[i%4]
+            
+        for i in derivatives_ksi:
+            print(i)
             
         return derivatives_ksi, derivatives_eta
 
 # obliczenia jakobianu 
 class DerivativeCoordinates:
     def __init__ (self, elements, nodes):
+        der_table = DerivativeTable()
         self.nodes = nodes
-        self.der_table_eta = DerivativeTable().derivatives_eta
-        self.der_table_ksi = DerivativeTable().derivatives_ksi
+        self.der_table_eta = der_table.derivatives_eta
+        self.der_table_ksi = der_table.derivatives_ksi
         self.elements = self.calculateJacobianMatrix(elements, nodes, self.der_table_eta, self.der_table_ksi)
         
     #obliczanie macierzy jacobiego, odwrotnej i wyznacznika
@@ -121,10 +135,10 @@ class DerivativeCoordinates:
                 
                 dx_dksi = clean_near_zero(sum(x_coords[j] * der_table_ksi[i][j] for j in range(4)))
                 dy_dksi = clean_near_zero(sum(y_coords[j] * der_table_ksi[i][j] for j in range(4)))
-                dx_det = clean_near_zero(sum(x_coords[j] * der_table_eta[i][j] for j in range(4)))
-                dy_det = clean_near_zero(sum(y_coords[j] * der_table_eta[i][j] for j in range(4)))
-            
-                jakobian.J = np.array([[dx_dksi, dy_dksi], [dx_det, dy_det]])
+                dx_deta = clean_near_zero(sum(x_coords[j] * der_table_eta[i][j] for j in range(4)))
+                dy_deta = clean_near_zero(sum(y_coords[j] * der_table_eta[i][j] for j in range(4)))
+
+                jakobian.J = np.array([[dx_dksi, dy_dksi], [dx_deta, dy_deta]])
                 jakobian.detJ = np.linalg.det(jakobian.J)
                 jakobian.J1 = np.linalg.inv(jakobian.J)
                 element.jakobian.append(jakobian)
@@ -134,7 +148,7 @@ class DerivativeCoordinates:
         for element in self.elements:
             print(f"Element ID: {element.id}")
             for i, jakobian in enumerate(element.jakobian):
-                print(f"  Node {element.nodes_id[i]}:")
+                print(f"  Gauss point {i+1}:")
                 print(f"    J:\n{jakobian.J}")
                 print(f"    detJ: {jakobian.detJ}")
                 print(f"    J1:\n{jakobian.J1}")

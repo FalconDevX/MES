@@ -2,7 +2,7 @@ from file_parse import GlobalData
 from gauss_integrations import DerivativeCoordinates
 
 if __name__ == "__main__":
-    data = GlobalData("Test1_4_4.txt")
+    data = GlobalData("Test2_4_4_MixGrid.txt")
     jacobian = DerivativeCoordinates(data.elements, data.nodes)
     jacobian.print_jakobian()
 
