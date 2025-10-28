@@ -65,7 +65,7 @@ class GlobalData:
                 parts = [x.strip() for x in line.split(',') if x.strip()]
                 if len(parts) == 5:
                     ID, n1, n2, n3, n4 = parts
-                    self.elements.append(Element(int(ID), [int(n1), int(n2), int(n3), int(n4)], []))
+                    self.elements.append(Element(int(ID), [int(n1), int(n2), int(n3), int(n4)], [], []))
 
             elif mode == "bc":
                 parts = [x.strip() for x in line.split(',') if x.strip()]

@@ -2,9 +2,9 @@ from file_parse import GlobalData
 from gauss_integrations import DerivativeCoordinates
 
 if __name__ == "__main__":
-    data = GlobalData("Test2_4_4_MixGrid.txt")
-    jacobian = DerivativeCoordinates(data.elements, data.nodes)
-    jacobian.print_jakobian()
+    data = GlobalData("Test1_4_4.txt")
+    jacobian = DerivativeCoordinates(data.grid, data.Conductivity)
+    # jacobian.print_jakobian()
 
     # for element in data.elements:
     #     print(f"Element ID: {element.id}, Nodes IDs: {element.nodes_id}")

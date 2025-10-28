@@ -5,10 +5,11 @@ class Node:
         self.y = y
 
 class Element:
-    def __init__ (self, id, nodes_id, jakobian):
+    def __init__ (self, id, nodes_id, jakobian, H):
         self.id = id
         self.nodes_id = nodes_id
         self.jakobian = jakobian
+        self.H = H
         
 class Grid:
     def __init__ (self, nodes, elements):
