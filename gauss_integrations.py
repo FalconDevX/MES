@@ -100,10 +100,15 @@ class DerivativeTable:
         # for i in range(derivatives_eta.size):
         #     value = dN_deta(gauss_points[i//4][0])
         #     derivatives_eta.flat[i] = value[i%4]
-            
+        #ksi
+        print("ksi: ")
         for i in derivatives_ksi:
             print(i)
-            
+        #eta
+        print("eta: ")
+        print()
+        for i in derivatives_eta:
+            print(i)
         return derivatives_ksi, derivatives_eta
 
 # obliczenia jakobianu 
@@ -150,9 +155,15 @@ class DerivativeCoordinates:
             der_eta_ksi_row_num = i
             H_local.append(self.calculateHMatrix(der_table_eta, der_table_ksi, jakobian, der_eta_ksi_row_num, conductivity))
 
-        element.H = sum(H_local[i] * gauss_weights[0]*gauss_weights[1] for i in range(4))
-        # return elements
+        gauss_weights_2d = list(product(gauss_weights, repeat=2))  # [(w1,w1),(w2,w1),(w1,w2),(w2,w2)]
 
+        element.H = sum(
+            H_local[i] * w_pair[0] * w_pair[1]
+            for i, w_pair in enumerate(gauss_weights_2d)
+        )
+        print("zajebista macierz H: ", element.H)    
+        return element.H
+    
     def calculateHMatrix(self, der_table_eta, der_table_ksi, jakobian: Jakobian, der_eta_ksi_row_num, conductivity):
         print("jakobian.J1", jakobian.J1)
         print("jakobian.detJ", jakobian.detJ)
