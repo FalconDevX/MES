@@ -68,8 +68,6 @@ class DerivativeTable:
         gauss_nodes = GaussTable(2).nodes
 
         gauss_points = list(product(gauss_nodes, repeat=2))
-        
-        print(gauss_points)
 
         def dN_dksi(eta):
             return [
@@ -100,15 +98,15 @@ class DerivativeTable:
         # for i in range(derivatives_eta.size):
         #     value = dN_deta(gauss_points[i//4][0])
         #     derivatives_eta.flat[i] = value[i%4]
-        #ksi
-        print("ksi: ")
-        for i in derivatives_ksi:
-            print(i)
-        #eta
-        print("eta: ")
-        print()
-        for i in derivatives_eta:
-            print(i)
+        # #ksi
+        # print("ksi: ")
+        # for i in derivatives_ksi:
+        #     print(i)
+        # #eta
+        # print("eta: ")
+        # print()
+        # for i in derivatives_eta:
+        #     print(i)
         return derivatives_ksi, derivatives_eta
 
 # obliczenia jakobianu 
@@ -124,52 +122,49 @@ class DerivativeCoordinates:
         
     #obliczanie macierzy jacobiego, odwrotnej i wyznacznika
     def calculateJacobianMatrix(self, elements, nodes, der_table_eta, der_table_ksi, gauss_weights, conductivity):
-    # for element in elements:
-        element = elements[0]
-        nodes_map = {n.id: n for n in nodes}
-        x_coords = []
-        y_coords = []
+        for element in elements:
+            nodes_map = {n.id: n for n in nodes}
+            x_coords = []
+            y_coords = []
 
-        element.jakobian = []
+            element.jakobian = []
+                    
+            for node_id in element.nodes_id:
+                node = nodes_map[node_id]
+                x_coords.append(node.x)
+                y_coords.append(node.y)        
+            H_local = []
+
+            #liczenie 4 maceirzy jakobiego dla jednego elementu 
+            for i in range(4):
+                jakobian = Jakobian([],[],[])
                 
-        for node_id in element.nodes_id:
-            node = nodes_map[node_id]
-            x_coords.append(node.x)
-            y_coords.append(node.y)        
-        H_local = []
+                dx_dksi = sum(x_coords[j] * der_table_ksi[i][j] for j in range(4))
+                dy_dksi = sum(y_coords[j] * der_table_ksi[i][j] for j in range(4))
+                dx_deta = sum(x_coords[j] * der_table_eta[i][j] for j in range(4))
+                dy_deta = sum(y_coords[j] * der_table_eta[i][j] for j in range(4))
 
-        #liczenie 4 maceirzy jakobiego dla jednego elementu 
-        for i in range(4):
-            jakobian = Jakobian([],[],[])
-            
-            dx_dksi = clean_near_zero(sum(x_coords[j] * der_table_ksi[i][j] for j in range(4)))
-            dy_dksi = clean_near_zero(sum(y_coords[j] * der_table_ksi[i][j] for j in range(4)))
-            dx_deta = clean_near_zero(sum(x_coords[j] * der_table_eta[i][j] for j in range(4)))
-            dy_deta = clean_near_zero(sum(y_coords[j] * der_table_eta[i][j] for j in range(4)))
+                jakobian.J = np.array([[dx_dksi, dx_deta],[dy_dksi, dy_deta]])
 
-            jakobian.J = np.array([[dx_dksi, dx_deta],[dy_dksi, dy_deta]])
+                jakobian.detJ = np.linalg.det(jakobian.J)
+                jakobian.J1 = np.linalg.inv(jakobian.J)
+                element.jakobian.append(jakobian)
+                der_eta_ksi_row_num = i
+                H_local.append(self.calculateHMatrix(der_table_eta, der_table_ksi, jakobian, der_eta_ksi_row_num, conductivity))
+                print("H_local:", H_local)
+                print()
+            gauss_weights_2d = list(product(gauss_weights, repeat=2)) 
 
-            jakobian.detJ = np.linalg.det(jakobian.J)
-            jakobian.J1 = np.linalg.inv(jakobian.J)
-            element.jakobian.append(jakobian)
-            der_eta_ksi_row_num = i
-            H_local.append(self.calculateHMatrix(der_table_eta, der_table_ksi, jakobian, der_eta_ksi_row_num, conductivity))
+            element.H = sum(H_local[i] * w_pair[0] * w_pair[1] for i, w_pair in enumerate(gauss_weights_2d))
 
-        gauss_weights_2d = list(product(gauss_weights, repeat=2))  # [(w1,w1),(w2,w1),(w1,w2),(w2,w2)]
-
-        element.H = sum(
-            H_local[i] * w_pair[0] * w_pair[1]
-            for i, w_pair in enumerate(gauss_weights_2d)
-        )
-        print("zajebista macierz H: ", element.H)    
-        return element.H
+        return elements
     
     def calculateHMatrix(self, der_table_eta, der_table_ksi, jakobian: Jakobian, der_eta_ksi_row_num, conductivity):
-        print("jakobian.J1", jakobian.J1)
-        print("jakobian.detJ", jakobian.detJ)
+        # print("jakobian.J", jakobian.J)
+        # print("jakobian.J1", jakobian.J1)
+        # print("jakobian.detJ", jakobian.detJ)
 
         J1 = jakobian.J1  
-        print("J1", J1)
         derivatives_x = np.zeros((4,1))
         derivatives_y = np.zeros((4,1))
 
@@ -181,32 +176,34 @@ class DerivativeCoordinates:
             dn_dy = J1[1][0] * dN_dksi + J1[1][1] * dN_deta
             derivatives_y[i] = dn_dy
 
-        print("Derivatives in x:")
-        print(derivatives_x)
-        print("Derivatives in y:")
-        print(derivatives_y)
+        # print("Derivatives in x:")
+        # print(derivatives_x)
+        # print("Derivatives in y:")
+        # print(derivatives_y)
 
-        dN_dx = derivatives_x.reshape(-1, 1)   
-        dN_dy = derivatives_y.reshape(-1, 1)   
+        dN_dx = derivatives_x.flatten()
+        dN_dy = derivatives_y.flatten()
 
-        dN_dx_T = dN_dx.T   
-        dN_dy_T = dN_dy.T  
-
-        #illoczyn wektora i wekotra transpozycji 
-        dN_dx_prod = dN_dx @ dN_dx_T   
-        dN_dy_prod = dN_dy @ dN_dy_T   
-        #liczenie macierzy lokalnej dla jednego pc
-        H_local = conductivity * (dN_dx_prod + dN_dy_prod) * jakobian.detJ
-        print("H lokalne: ", H_local)
+        H_local = np.zeros((4,4))
+        for i in range(4):
+            for j in range(4):
+                H_local[i,j] = (dN_dx[i]*dN_dx[j] + dN_dy[i]*dN_dy[j]) * conductivity * abs(jakobian.detJ)
         return H_local
 
 
-    # def print_jakobian(self):
-    #     for element in self.elements:
-    #         print(f"Element ID: {element.id}")
-    #         for i, jakobian in enumerate(element.jakobian):
-    #             print(f"  Gauss point {i+1}:")
-    #             print(f"    J:\n{jakobian.J}")
-    #             print(f"    detJ: {jakobian.detJ}")
-    #             print(f"    J1:\n{jakobian.J1}")
-    #             print()
+    def print_jakobian(self):
+        GREEN = "\033[32m"
+        BLUE = "\033[34m"
+        CYAN = "\033[36m"
+        MAGENTA = "\033[35m"
+        RESET = "\033[0m"
+
+        for element in self.elements:
+            print(f"{GREEN}Element ID:{RESET} {element.id}")
+            print(f"    {GREEN}H{RESET}:\n{element.H}")
+            for i, jakobian in enumerate(element.jakobian):
+                print(f"  {CYAN}Gauss point {i+1}:{RESET}")
+                print(f"    {GREEN}J{RESET}:\n{jakobian.J}")
+                print(f"    {BLUE}detJ{RESET}: {jakobian.detJ}")
+                print(f"    {MAGENTA}J1{RESET}:\n{jakobian.J1}")
+                print()
