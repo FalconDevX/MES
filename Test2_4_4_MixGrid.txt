@@ -1,3 +1,4 @@
+IntegralScheme 3
 SimulationTime 500
 SimulationStepTime 50
 Conductivity 25

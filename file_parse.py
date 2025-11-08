@@ -3,6 +3,7 @@ from class_types import Node, Element, Grid
 class GlobalData:
     def __init__(self, filename):
         self.filename = filename
+        self.N = None
         self.SimulationTime = None
         self.SimulationStepTime = None
         self.Conductivity = None
@@ -29,7 +30,9 @@ class GlobalData:
             if not line:
                 continue
 
-            if line.startswith("SimulationTime"):
+            if line.startswith("IntegralScheme"):
+                self.N = float(line.split()[1])
+            elif line.startswith("SimulationTime"):
                 self.SimulationTime = float(line.split()[1])
             elif line.startswith("SimulationStepTime"):
                 self.SimulationStepTime = float(line.split()[1])

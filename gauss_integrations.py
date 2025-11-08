@@ -1,7 +1,7 @@
 import numpy as np
 from itertools import product
 import inspect
-from class_types import Node, Element, Grid, Jakobian
+from class_types import Element, Grid, Jakobian
 
 class GaussTable:
     def __init__(self, N : int):
@@ -58,15 +58,18 @@ class GaussIntegral:
     
 #tabele pochodnych funkcji ksztaltu po ksi i eta
 class DerivativeTable:
-    def __init__(self):
+    def __init__(self, N):
+        self.N = N
         self.derivatives_ksi, self.derivatives_eta = self.generate_derivative_table()
 
     def  generate_derivative_table(self):
-        derivatives_ksi = np.zeros((4, 4))
-        derivatives_eta = np.zeros((4, 4))
-        gauss_nodes = GaussTable(2).nodes
+        gauss_nodes = GaussTable(self.N).nodes
 
         gauss_points = [(ksi, eta) for eta in gauss_nodes for ksi in gauss_nodes]
+
+        
+        derivatives_ksi = np.zeros((len(gauss_points), 4))
+        derivatives_eta = np.zeros((len(gauss_points), 4))
 
         def dN_dksi(eta):
             return [
@@ -85,10 +88,10 @@ class DerivativeTable:
             ]
 
         for i, (ksi, eta) in enumerate(gauss_points):
-            dNksi = np.round(dN_dksi(eta), 6)
-            dNeta = np.round(dN_deta(ksi), 6)
-            derivatives_ksi[i, :] = dNksi
-            derivatives_eta[i, :] = dNeta
+            # dNksi = np.round(dN_dksi(eta), 6)
+            # dNeta = np.round(dN_deta(ksi), 6)
+            derivatives_ksi[i, :] = dN_dksi(eta)
+            derivatives_eta[i, :] = dN_deta(ksi)
 
         # for i in range(derivatives_ksi.size):
         #     value = dN_dksi(gauss_points[i//4][1])
@@ -110,11 +113,12 @@ class DerivativeTable:
 
 # obliczenia jakobianu 
 class DerivativeCoordinates:
-    def __init__ (self, grid : Grid, conductivity):
-        der_table = DerivativeTable()
+    def __init__ (self, grid : Grid, conductivity, N):
+        der_table = DerivativeTable(N)
+        self.N = N
         self.conductivity = conductivity
         self.nodes = grid.nodes
-        self.gauss_weights = GaussTable(2).weights
+        self.gauss_weights = GaussTable(N).weights
         self.der_table_eta = der_table.derivatives_eta
         self.der_table_ksi = der_table.derivatives_ksi
         self.elements = self.calculateJacobianMatrix(grid.elements, grid.nodes, self.der_table_eta, self.der_table_ksi, self.gauss_weights, self.conductivity)
@@ -135,7 +139,7 @@ class DerivativeCoordinates:
             H_local = []
 
             #liczenie 4 maceirzy jakobiego dla jednego elementu 
-            for i in range(4):
+            for i in range(len(der_table_ksi)):
                 jakobian = Jakobian([],[],[])
                 
                 dx_dksi = sum(x_coords[j] * der_table_ksi[i][j] for j in range(4))
