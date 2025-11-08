@@ -9,6 +9,9 @@ class GaussTable:
         self.nodes, self.weights = self.generate_gauss_table(N)
 
     def generate_gauss_table(self, N : int):
+        """
+            Returns Gauss–Legendre points and weights for the given N (1–4).
+        """
         if N == 1:
             x_k = [0.0]
             A_k = [2.0]
@@ -32,7 +35,7 @@ class GaussTable:
 
         return x_k, A_k
 
-#całkwoanie metoda gasussa
+#całkwowanie metoda gasussa
 class GaussIntegral:
     def __init__(self, N: int, function):
         self.N = N 
@@ -58,16 +61,21 @@ class GaussIntegral:
     
 #tabele pochodnych funkcji ksztaltu po ksi i eta
 class DerivativeTable:
+    
     def __init__(self, N):
         self.N = N
         self.derivatives_ksi, self.derivatives_eta = self.generate_derivative_table()
 
     def  generate_derivative_table(self):
+        """
+            Calculate derivatives table from N shape functions and local vairables (ksi, eta) for every integral point
+            arg: N - number of integral points scheme
+            returns: array of integrated shape functions after local poinst (ksi, eta)
+        """
         gauss_nodes = GaussTable(self.N).nodes
 
         gauss_points = [(ksi, eta) for eta in gauss_nodes for ksi in gauss_nodes]
 
-        
         derivatives_ksi = np.zeros((len(gauss_points), 4))
         derivatives_eta = np.zeros((len(gauss_points), 4))
 
@@ -100,6 +108,7 @@ class DerivativeTable:
         # for i in range(derivatives_eta.size):
         #     value = dN_deta(gauss_points[i//4][0])
         #     derivatives_eta.flat[i] = value[i%4]
+        
         #ksi
         print("ksi: ")
         for i in derivatives_ksi:
@@ -125,6 +134,11 @@ class DerivativeCoordinates:
         
     #obliczanie macierzy jacobiego, odwrotnej i wyznacznika
     def calculateJacobianMatrix(self, elements, nodes, der_table_eta, der_table_ksi, gauss_weights, conductivity):
+        """
+            Calculate jacobian matrix, transposed and determinant for every element in one iteration
+            arg: class contructor
+            returns: array of elements
+        """
         for element in elements:
             nodes_map = {n.id: n for n in nodes}
             x_coords = []
@@ -155,24 +169,29 @@ class DerivativeCoordinates:
                 der_eta_ksi_row_num = i
                 H_local.append(self.calculateHMatrix(der_table_eta, der_table_ksi, jakobian, der_eta_ksi_row_num, conductivity, element))
             element.H_local = H_local
+            #iloczyn kartezjański dla różnych wag dla 2d
             gauss_weights_2d = list(product(gauss_weights, repeat=2)) 
-
+            
+            #para elementów bo ksi i eta
             element.H = sum(H_local[i] * w_pair[0] * w_pair[1] for i, w_pair in enumerate(gauss_weights_2d))
-
         return elements
 
     def calculateHMatrix(self, der_table_eta, der_table_ksi, jakobian: Jakobian, der_eta_ksi_row_num, conductivity, element: Element):
-        # print("jakobian.J", jakobian.J)
-        # print("jakobian.J1", jakobian.J1)
-        # print("jakobian.detJ", jakobian.detJ)
+        """
+            Calculate H local matrix for every node
+            arg: derivatives tables for eta and ksi, jacobian object, row number from 
+        """
 
         J1 = jakobian.J1
         derivatives_x = np.zeros((4, 1))
         derivatives_y = np.zeros((4, 1))
 
+        #4 bo dla 2D tylko ksi i eta: 4 x dN_dksi, 4 x dN_deta, 
         for i in range(4):
+            #wiersz zgodny z "i" z petli wywołującej calculateHmatrix czyli liczba wierszy
             dN_dksi = der_table_ksi[der_eta_ksi_row_num][i]
             dN_deta = der_table_eta[der_eta_ksi_row_num][i]
+            #wzór na elementy pochodznych loklanych po funkcji kształtu
             dn_dx = J1[0][0] * dN_dksi + J1[0][1] * dN_deta
             derivatives_x[i] = dn_dx
             dn_dy = J1[1][0] * dN_dksi + J1[1][1] * dN_deta
@@ -190,6 +209,7 @@ class DerivativeCoordinates:
         H_local = np.zeros((4,4))
         for i in range(4):
             for j in range(4):
+                #pełny wzór na mceirz lokalna
                 H_local[i,j] = (dN_dx[i]*dN_dx[j] + dN_dy[i]*dN_dy[j]) * conductivity * abs(jakobian.detJ)
         return H_local
 
