@@ -110,14 +110,14 @@ class DerivativeTable:
         #     derivatives_eta.flat[i] = value[i%4]
         
         #ksi
-        print("ksi: ")
-        for i in derivatives_ksi:
-            print(i)
-        #eta
-        print("eta: ")
-        print()
-        for i in derivatives_eta:
-            print(i)
+        # print("ksi: ")
+        # for i in derivatives_ksi:
+        #     print(i)
+        # #eta
+        # print("eta: ")
+        # print()
+        # for i in derivatives_eta:
+        #     print(i)
         return derivatives_ksi, derivatives_eta
 
 # obliczenia jakobianu 
@@ -131,7 +131,10 @@ class DerivativeCoordinates:
         self.der_table_eta = der_table.derivatives_eta
         self.der_table_ksi = der_table.derivatives_ksi
         self.elements = self.calculateJacobianMatrix(grid.elements, grid.nodes, self.der_table_eta, self.der_table_ksi, self.gauss_weights, self.conductivity)
+        self.H_global = self.agregateHmatrix(self.elements, self.nodes)
         
+        np.set_printoptions(precision=4, suppress=True, linewidth=200)
+        print(self.H_global)
     #obliczanie macierzy jacobiego, odwrotnej i wyznacznika
     def calculateJacobianMatrix(self, elements, nodes, der_table_eta, der_table_ksi, gauss_weights, conductivity):
         """
@@ -213,6 +216,20 @@ class DerivativeCoordinates:
                 H_local[i,j] = (dN_dx[i]*dN_dx[j] + dN_dy[i]*dN_dy[j]) * conductivity * abs(jakobian.detJ)
         return H_local
 
+    def agregateHmatrix(self, elements, nodes):
+        all_nodes_num = len(nodes)
+        H_global = np.zeros((all_nodes_num, all_nodes_num))
+
+        for element in elements:
+            ids = element.nodes_id
+            H_local = element.H  
+
+            for i in range(4):
+                for j in range(4):
+                    i_global = ids[i] - 1
+                    j_global = ids[j] - 1
+                    H_global[i_global, j_global] += H_local[i,j]
+        return H_global
 
     def print_jakobian(self):
         GREEN = "\033[32m"      
@@ -224,12 +241,12 @@ class DerivativeCoordinates:
         for element in self.elements:
             print(f"{GREEN} Element ID:{RESET} {element.id}")
             print(f"    {GREEN}H{RESET}:\n{element.H}")
-            for i, jakobian in enumerate(element.jakobian):
-                print(f"  {CYAN}Gauss point {i+1}:{RESET}")
-                print(f"    {GREEN}J{RESET}:\n{jakobian.J}")
-                print(f"    {BLUE}detJ{RESET}: {jakobian.detJ}")
-                print(f"    {MAGENTA}J1{RESET}:\n{jakobian.J1}")
-                print()
+            # for i, jakobian in enumerate(element.jakobian):
+            #     print(f"  {CYAN}Gauss point {i+1}:{RESET}")
+            #     print(f"    {GREEN}J{RESET}:\n{jakobian.J}")
+            #     print(f"    {BLUE}detJ{RESET}: {jakobian.detJ}")
+            #     print(f"    {MAGENTA}J1{RESET}:\n{jakobian.J1}")
+            #     print()
             for i, H in enumerate(element.H_local):
                 print(f"  {CYAN}H local{i+1}:{RESET}\n{H}")
             # for i, der_table in enumerate(element.der_table):
