@@ -4,7 +4,7 @@ from gauss_integrations import DerivativeCoordinates
 if __name__ == "__main__":
     data = GlobalData("Test1_4_4.txt")
     print("N:",data.N)
-    jacobian = DerivativeCoordinates(data.grid, data.Conductivity, data.N)
+    jacobian = DerivativeCoordinates(data.grid, data.Conductivity, data.N, data.BC)
     jacobian.print_jakobian()
 
     # for element in data.elements:

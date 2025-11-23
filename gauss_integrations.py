@@ -67,11 +67,6 @@ class DerivativeTable:
         self.derivatives_ksi, self.derivatives_eta = self.generate_derivative_table()
 
     def  generate_derivative_table(self):
-        """
-            Calculate derivatives table from N shape functions and local vairables (ksi, eta) for every integral point
-            arg: N - number of integral points scheme
-            returns: array of integrated shape functions after local poinst (ksi, eta)
-        """
         gauss_nodes = GaussTable(self.N).nodes
 
         gauss_points = [(ksi, eta) for eta in gauss_nodes for ksi in gauss_nodes]
@@ -122,26 +117,25 @@ class DerivativeTable:
 
 # obliczenia jakobianu 
 class DerivativeCoordinates:
-    def __init__ (self, grid : Grid, conductivity, N):
+    def __init__ (self, grid : Grid, conductivity, N, BC):
         der_table = DerivativeTable(N)
         self.N = N
+        self.BC = BC
         self.conductivity = conductivity
         self.nodes = grid.nodes
         self.gauss_weights = GaussTable(N).weights
         self.der_table_eta = der_table.derivatives_eta
         self.der_table_ksi = der_table.derivatives_ksi
-        self.elements = self.calculateJacobianMatrix(grid.elements, grid.nodes, self.der_table_eta, self.der_table_ksi, self.gauss_weights, self.conductivity)
+        self.elements = self.calculateJacobianMatrix(grid.elements, grid.nodes, self.der_table_eta, self.der_table_ksi, self.gauss_weights, self.conductivity, self.BC)
+        self.HbcMatrix = self.calculateHbcMatrix()
         self.H_global = self.agregateHmatrix(self.elements, self.nodes)
         
         np.set_printoptions(precision=4, suppress=True, linewidth=200)
         print(self.H_global)
+
     #obliczanie macierzy jacobiego, odwrotnej i wyznacznika
-    def calculateJacobianMatrix(self, elements, nodes, der_table_eta, der_table_ksi, gauss_weights, conductivity):
-        """
-            Calculate jacobian matrix, transposed and determinant for every element in one iteration
-            arg: class contructor
-            returns: array of elements
-        """
+    def calculateJacobianMatrix(self, elements, nodes, der_table_eta, der_table_ksi, gauss_weights, conductivity, BC):
+
         for element in elements:
             nodes_map = {n.id: n for n in nodes}
             x_coords = []
@@ -171,20 +165,25 @@ class DerivativeCoordinates:
                 element.jakobian.append(jakobian)
                 der_eta_ksi_row_num = i
                 H_local.append(self.calculateHMatrix(der_table_eta, der_table_ksi, jakobian, der_eta_ksi_row_num, conductivity, element))
+           
             element.H_local = H_local
             #iloczyn kartezjański dla różnych wag dla 2d
             gauss_weights_2d = list(product(gauss_weights, repeat=2)) 
             
             #para elementów bo ksi i eta
             element.H = sum(H_local[i] * w_pair[0] * w_pair[1] for i, w_pair in enumerate(gauss_weights_2d))
+
+            #liczenie Hbc w jednej petli zH
+            #sprawdzanie czy element jest elementem brzegowym
+            for nodes_id in element.nodes_id:
+                boundary = []
+                if nodes_id in BC:
+                    boundary.append(nodes_id)
+                    print(boundary)
+
         return elements
 
     def calculateHMatrix(self, der_table_eta, der_table_ksi, jakobian: Jakobian, der_eta_ksi_row_num, conductivity, element: Element):
-        """
-            Calculate H local matrix for every node
-            arg: derivatives tables for eta and ksi, jacobian object, row number from 
-        """
-
         J1 = jakobian.J1
         derivatives_x = np.zeros((4, 1))
         derivatives_y = np.zeros((4, 1))
@@ -215,6 +214,12 @@ class DerivativeCoordinates:
                 #pełny wzór na mceirz lokalna
                 H_local[i,j] = (dN_dx[i]*dN_dx[j] + dN_dy[i]*dN_dy[j]) * conductivity * abs(jakobian.detJ)
         return H_local
+
+    def calculateHbcMatrix(elements):
+        well = []
+        well.append([1,2])
+        well.append([3,4])
+        print(well)
 
     def agregateHmatrix(self, elements, nodes):
         all_nodes_num = len(nodes)
