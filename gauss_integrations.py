@@ -126,24 +126,32 @@ class DerivativeTable:
 
 # obliczenia jakobianu 
 class DerivativeCoordinates:
-    def __init__ (self, grid : Grid, conductivity, N, BC, alfa):
+    def __init__ (self, grid : Grid, conductivity, N, BC, alfa, Tot):
         der_table = DerivativeTable(N)
         self.alfa = alfa
         self.N = N
         self.BC = BC
+        self.Tot = Tot
         self.conductivity = conductivity
         self.nodes = grid.nodes
         self.gauss_weights = GaussTable(N).weights
         self.der_table_eta = der_table.derivatives_eta
         self.der_table_ksi = der_table.derivatives_ksi
-        self.elements = self.calculateJacobianMatrix(grid.elements, grid.nodes, self.der_table_eta, self.der_table_ksi, self.gauss_weights, self.conductivity, self.BC, self.alfa)
+        self.elements = self.calculateJacobianHbcPMatrix(grid.elements, grid.nodes, self.der_table_eta, self.der_table_ksi, self.gauss_weights, self.conductivity, self.BC, self.alfa, self.Tot)
         self.H_global = self.agregateHmatrix(self.elements, self.nodes)
-        
+        self.P_global = self.agregateP(self.elements, self.nodes)
+
         np.set_printoptions(precision=4, suppress=True, linewidth=200)
+        
+        print("Matrix H:")
         print(self.H_global)
+        print()
+        print("Matrix P:")
+        print(self.P_global)
+
 
     #obliczanie macierzy jacobiego, odwrotnej i wyznacznika
-    def calculateJacobianMatrix(self, elements, nodes, der_table_eta, der_table_ksi, gauss_weights, conductivity, BC, alfa):
+    def calculateJacobianHbcPMatrix(self, elements, nodes, der_table_eta, der_table_ksi, gauss_weights, conductivity, BC, alfa, Tot):
 
         for element in elements:
             #mapping node id to node coordinates
@@ -225,8 +233,11 @@ class DerivativeCoordinates:
 
             shape_functions = ShapeFunctions()
 
+            element.P = np.zeros((4,1))
+
             #część właściwa obliczania macierzy Hbc
             for bd_edge in boundary_edges:
+                # id1 0 id2 0 edge_id 1
                 # print("bd_edge: ", bd_edge)
                 #uzyskiwanie punktów ksi i eta na podstawie numeru krawędzi
                 edge_id = bd_edge[2]
@@ -244,11 +255,11 @@ class DerivativeCoordinates:
                 #liczenie jakobianu na krawedzi 
                 id1, id2, edge_id = bd_edge
                 #uzyskiwanie współrzędnych węzłów na podstawie numeru węzła
-                p1 = nodes_map[id1]
-                p2 = nodes_map[id2]
+                p1_coord = nodes_map[id1]
+                p2_coord = nodes_map[id2]
 
-                dx = p2.x - p1.x
-                dy = p2.y - p1.y
+                dx = p2_coord.x - p1_coord.x
+                dy = p2_coord.y - p1_coord.y
                 J_edge = np.sqrt(dx*dx + dy*dy) / 2
 
                 # print("H_pc1: ", H_pc1 * gauss_weights[0] * alfa * J_edge)
@@ -256,12 +267,31 @@ class DerivativeCoordinates:
 
                 Hbc_local = alfa * (H_pc1 * gauss_weights[0] + H_pc2 * gauss_weights[1]) * J_edge
                 # print("Hbc_local: ", Hbc_local)
+                Tot = np.array(Tot)
+                #liczenie macierzy P
+
+                P_local = alfa * (pc1 * Tot * gauss_weights[0] + pc2 * Tot * gauss_weights[1]) * J_edge
+                element.P += P_local
+                print("P_local: ", P_local)
                 element.Hbc += Hbc_local
             element.H += element.Hbc
             # print("--------------------------------")
             # print("element.id: ", element.id)
             # print("element.Hbc: ", element.Hbc)
         return elements
+
+    def agregateP(self, elements, nodes):
+        all_nodes_num = len(nodes)
+        P_global = np.zeros((all_nodes_num, 1))
+
+        for element in elements:
+            ids = element.nodes_id
+            P_local = element.P
+
+            for i in range(4):
+                i_global = ids[i] - 1
+                P_global[i_global, 0] += P_local[i, 0]
+        return P_global
 
     def calculateHMatrix(self, der_table_eta, der_table_ksi, jakobian: Jakobian, der_eta_ksi_row_num, conductivity, element: Element):
         J1 = jakobian.J1
@@ -331,3 +361,4 @@ class DerivativeCoordinates:
                 print(f"  {CYAN}H local{i+1}:{RESET}\n{H}")
             # for i, der_table in enumerate(element.der_table):
             #     print(f"  {CYAN}Derivatives table {i+1}:{RESET}\n{der_table}")
+
