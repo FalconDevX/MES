@@ -35,6 +35,16 @@ class GaussTable:
 
         return x_k, A_k
 
+#funkcje kształtu dla macierzy Hbc(całak powierzchniowa)
+class ShapeFunctions:
+    def N_functions(self, ksi, eta):
+        return np.array([
+        0.25 * (1 - ksi) * (1 - eta),
+        0.25 * (1 + ksi) * (1 - eta),
+        0.25 * (1 + ksi) * (1 + eta),
+        0.25 * (1 - ksi) * (1 + eta),
+    ])
+
 #całkwowanie metoda gasussa
 class GaussIntegral:
     def __init__(self, N: int, function):
@@ -61,12 +71,11 @@ class GaussIntegral:
     
 #tabele pochodnych funkcji ksztaltu po ksi i eta
 class DerivativeTable:
-    
     def __init__(self, N):
         self.N = N
         self.derivatives_ksi, self.derivatives_eta = self.generate_derivative_table()
 
-    def  generate_derivative_table(self):
+    def generate_derivative_table(self):
         gauss_nodes = GaussTable(self.N).nodes
 
         gauss_points = [(ksi, eta) for eta in gauss_nodes for ksi in gauss_nodes]
@@ -117,8 +126,9 @@ class DerivativeTable:
 
 # obliczenia jakobianu 
 class DerivativeCoordinates:
-    def __init__ (self, grid : Grid, conductivity, N, BC):
+    def __init__ (self, grid : Grid, conductivity, N, BC, alfa):
         der_table = DerivativeTable(N)
+        self.alfa = alfa
         self.N = N
         self.BC = BC
         self.conductivity = conductivity
@@ -126,17 +136,17 @@ class DerivativeCoordinates:
         self.gauss_weights = GaussTable(N).weights
         self.der_table_eta = der_table.derivatives_eta
         self.der_table_ksi = der_table.derivatives_ksi
-        self.elements = self.calculateJacobianMatrix(grid.elements, grid.nodes, self.der_table_eta, self.der_table_ksi, self.gauss_weights, self.conductivity, self.BC)
-        self.HbcMatrix = self.calculateHbcMatrix()
+        self.elements = self.calculateJacobianMatrix(grid.elements, grid.nodes, self.der_table_eta, self.der_table_ksi, self.gauss_weights, self.conductivity, self.BC, self.alfa)
         self.H_global = self.agregateHmatrix(self.elements, self.nodes)
         
         np.set_printoptions(precision=4, suppress=True, linewidth=200)
         print(self.H_global)
 
     #obliczanie macierzy jacobiego, odwrotnej i wyznacznika
-    def calculateJacobianMatrix(self, elements, nodes, der_table_eta, der_table_ksi, gauss_weights, conductivity, BC):
+    def calculateJacobianMatrix(self, elements, nodes, der_table_eta, der_table_ksi, gauss_weights, conductivity, BC, alfa):
 
         for element in elements:
+            #mapping node id to node coordinates
             nodes_map = {n.id: n for n in nodes}
             x_coords = []
             y_coords = []
@@ -173,14 +183,84 @@ class DerivativeCoordinates:
             #para elementów bo ksi i eta
             element.H = sum(H_local[i] * w_pair[0] * w_pair[1] for i, w_pair in enumerate(gauss_weights_2d))
 
-            #liczenie Hbc w jednej petli zH
-            #sprawdzanie czy element jest elementem brzegowym
-            for nodes_id in element.nodes_id:
-                boundary = []
-                if nodes_id in BC:
-                    boundary.append(nodes_id)
-                    print(boundary)
+            # print("elementy brzegowe")
 
+            ##Obkliczanie macierzy Hbc
+
+            #tworzenie punktów lokalnych brzegowych 
+            
+            gauss_nodes = GaussTable(self.N).nodes
+            gauss_weights = GaussTable(self.N).weights
+
+            #gauss_points = [(ksi, eta) for eta in gauss_table for ksi in gauss_table]
+
+            ksi_eta_edge_points = {
+                # dla pierwszej krawedzi[( -1/√3 , -1 ),(  1/√3 , -1 )]
+                1: [(ksi, -1) for ksi in gauss_nodes],   
+                2: [(1,  eta) for eta in gauss_nodes],   
+                3: [(ksi,  1) for ksi in gauss_nodes],   
+                4: [(-1, eta) for eta in gauss_nodes]    
+            }
+
+            # for i in ksi_eta_edge_points:
+            #     print("ksi_eta_edge_points: ", ksi_eta_edge_points[i])
+
+            #liczenie Hbc w jednej petli z H
+            element.Hbc = np.zeros((4,4))
+            #sprawdzanie czy element jest elementem brzegowym
+            edges_indexes = [(0,1), (1,2), (2,3), (3,0)]
+            element_nodes = element.nodes_id
+            
+            #id1, id2, id_edge
+            boundary_edges = []
+            # 0 0 1
+            # 1 1 2
+            # 2 2 3
+            # 3 3 0
+            for id, (i,j) in enumerate(edges_indexes):
+                #jeśli węzły są w BC
+                if element_nodes[i] in BC and element_nodes[j] in BC:
+                    #id + 1 bo id nie zaczyna się od 0
+                    boundary_edges.append((element_nodes[i], element_nodes[j], id + 1))
+
+            shape_functions = ShapeFunctions()
+
+            #część właściwa obliczania macierzy Hbc
+            for bd_edge in boundary_edges:
+                # print("bd_edge: ", bd_edge)
+                #uzyskiwanie punktów ksi i eta na podstawie numeru krawędzi
+                edge_id = bd_edge[2]
+                edge_points = ksi_eta_edge_points[edge_id]       
+                # print("edge_points: ", edge_points)
+                #pc1 , pc2 dwa punkty na tej samej krawędzi 
+                pc1 = np.array(shape_functions.N_functions(edge_points[0][0], edge_points[0][1])).reshape(4,1)
+                pc2 = np.array(shape_functions.N_functions(edge_points[1][0], edge_points[1][1])).reshape(4,1)
+                # print("pc1: ", pc1)
+                # print("pc2: ", pc2)
+                #iloczyn wektorowy
+                H_pc1 = pc1 @ pc1.T   
+                H_pc2 = pc2 @ pc2.T   
+
+                #liczenie jakobianu na krawedzi 
+                id1, id2, edge_id = bd_edge
+                #uzyskiwanie współrzędnych węzłów na podstawie numeru węzła
+                p1 = nodes_map[id1]
+                p2 = nodes_map[id2]
+
+                dx = p2.x - p1.x
+                dy = p2.y - p1.y
+                J_edge = np.sqrt(dx*dx + dy*dy) / 2
+
+                # print("H_pc1: ", H_pc1 * gauss_weights[0] * alfa * J_edge)
+                # print("H_pc2: ", H_pc2 * gauss_weights[1] * alfa * J_edge)
+
+                Hbc_local = alfa * (H_pc1 * gauss_weights[0] + H_pc2 * gauss_weights[1]) * J_edge
+                # print("Hbc_local: ", Hbc_local)
+                element.Hbc += Hbc_local
+            element.H += element.Hbc
+            # print("--------------------------------")
+            # print("element.id: ", element.id)
+            # print("element.Hbc: ", element.Hbc)
         return elements
 
     def calculateHMatrix(self, der_table_eta, der_table_ksi, jakobian: Jakobian, der_eta_ksi_row_num, conductivity, element: Element):
@@ -215,12 +295,6 @@ class DerivativeCoordinates:
                 H_local[i,j] = (dN_dx[i]*dN_dx[j] + dN_dy[i]*dN_dy[j]) * conductivity * abs(jakobian.detJ)
         return H_local
 
-    def calculateHbcMatrix(elements):
-        well = []
-        well.append([1,2])
-        well.append([3,4])
-        print(well)
-
     def agregateHmatrix(self, elements, nodes):
         all_nodes_num = len(nodes)
         H_global = np.zeros((all_nodes_num, all_nodes_num))
@@ -246,6 +320,7 @@ class DerivativeCoordinates:
         for element in self.elements:
             print(f"{GREEN} Element ID:{RESET} {element.id}")
             print(f"    {GREEN}H{RESET}:\n{element.H}")
+            print(f"    {GREEN}Hbc{RESET}:\n{element.Hbc}")
             # for i, jakobian in enumerate(element.jakobian):
             #     print(f"  {CYAN}Gauss point {i+1}:{RESET}")
             #     print(f"    {GREEN}J{RESET}:\n{jakobian.J}")
