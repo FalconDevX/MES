@@ -8,13 +8,15 @@ class Node:
         self.BC = BC
 
 class Element:
-    def __init__ (self, id, nodes_id, jakobian, H, H_local, der_table, Hbc, P):
+    def __init__ (self, id, nodes_id, jakobian, H, H_local, der_table, C_local, C_table, Hbc, P):
         self.id = id
         self.nodes_id = nodes_id
         self.jakobian = jakobian
         self.H = H
         self.H_local = H_local
         self.der_table = der_table
+        self.C_local = C_local
+        self.C_table = C_table
         self.Hbc = Hbc
         self.P = P
         

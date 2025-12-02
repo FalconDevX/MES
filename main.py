@@ -5,12 +5,14 @@ from class_types import SystemOfEquations
 if __name__ == "__main__":
     data = GlobalData("Test1_4_4.txt")
     print("N:",data.N)
-    jacobian = DerivativeCoordinates(data.grid, data.Conductivity, data.N, data.BC, data.Alfa, data.Tot)
-    jacobian.print_jakobian()
+    jacobian = DerivativeCoordinates(data.grid, data.Conductivity, data.N, data.BC, data.Alfa, data.Tot, data.Density, data.SpecificHeat)
+    # jacobian.print_jakobian()
 
-    system_of_equations = SystemOfEquations(jacobian.H_global, jacobian.P_global)
-    system_of_equations.solve()
-    print("Temperature: ", system_of_equations.t)
+    # system_of_equations = SystemOfEquations(jacobian.H_global, jacobian.P_global)
+    # system_of_equations.solve()
+    # print("Temperature: ", system_of_equations.t)
+
+
     # for element in data.elements:
     #     print(f"Element ID: {element.id}, Nodes IDs: {element.nodes_id}")
 

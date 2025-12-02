@@ -5,7 +5,7 @@ Conductivity 25
 Alfa 300
 Tot 1200
 InitialTemp 100
-Density 7800
+Density 7800      
 SpecificHeat 700
 Nodes number 16
 Elements number 9

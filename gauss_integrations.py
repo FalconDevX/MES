@@ -69,6 +69,11 @@ class GaussIntegral:
             integration_value += w * self.function(*coord)
         return integration_value
     
+class GaussPoints:
+    def __init__(self, N):
+        self.gauss_nodes = GaussTable(N).nodes
+        self.gauss_points = [(ksi, eta) for eta in self.gauss_nodes for ksi in self.gauss_nodes]
+
 #tabele pochodnych funkcji ksztaltu po ksi i eta
 class DerivativeTable:
     def __init__(self, N):
@@ -76,10 +81,7 @@ class DerivativeTable:
         self.derivatives_ksi, self.derivatives_eta = self.generate_derivative_table()
 
     def generate_derivative_table(self):
-        gauss_nodes = GaussTable(self.N).nodes
-
-        gauss_points = [(ksi, eta) for eta in gauss_nodes for ksi in gauss_nodes]
-
+        gauss_points = GaussPoints(self.N).gauss_points
         derivatives_ksi = np.zeros((len(gauss_points), 4))
         derivatives_eta = np.zeros((len(gauss_points), 4))
 
@@ -102,6 +104,7 @@ class DerivativeTable:
         for i, (ksi, eta) in enumerate(gauss_points):
             # dNksi = np.round(dN_dksi(eta), 6)
             # dNeta = np.round(dN_deta(ksi), 6)
+            
             derivatives_ksi[i, :] = dN_dksi(eta)
             derivatives_eta[i, :] = dN_deta(ksi)
 
@@ -126,18 +129,20 @@ class DerivativeTable:
 
 # obliczenia jakobianu 
 class DerivativeCoordinates:
-    def __init__ (self, grid : Grid, conductivity, N, BC, alfa, Tot):
+    def __init__ (self, grid : Grid, conductivity, N, BC, alfa, Tot, density, specific_heat):
         der_table = DerivativeTable(N)
         self.alfa = alfa
         self.N = N
         self.BC = BC
         self.Tot = Tot
         self.conductivity = conductivity
+        self.density = density
+        self.specific_heat = specific_heat
         self.nodes = grid.nodes
         self.gauss_weights = GaussTable(N).weights
         self.der_table_eta = der_table.derivatives_eta
         self.der_table_ksi = der_table.derivatives_ksi
-        self.elements = self.calculateJacobianHbcPMatrix(grid.elements, grid.nodes, self.der_table_eta, self.der_table_ksi, self.gauss_weights, self.conductivity, self.BC, self.alfa, self.Tot)
+        self.elements = self.calculateJacobianHbcPMatrix(grid.elements, grid.nodes, self.der_table_eta, self.der_table_ksi, self.gauss_weights, self.conductivity, self.BC, self.alfa, self.Tot, self.density, self.specific_heat)
         self.H_global = self.agregateHmatrix(self.elements, self.nodes)
         self.P_global = self.agregateP(self.elements, self.nodes)
 
@@ -151,7 +156,7 @@ class DerivativeCoordinates:
 
 
     #obliczanie macierzy jacobiego, odwrotnej i wyznacznika
-    def calculateJacobianHbcPMatrix(self, elements, nodes, der_table_eta, der_table_ksi, gauss_weights, conductivity, BC, alfa, Tot):
+    def calculateJacobianHbcPMatrix(self, elements, nodes, der_table_eta, der_table_ksi, gauss_weights, conductivity, BC, alfa, Tot, density, specific_heat):
 
         for element in elements:
             #mapping node id to node coordinates
@@ -166,6 +171,7 @@ class DerivativeCoordinates:
                 x_coords.append(node.x)
                 y_coords.append(node.y)        
             H_local = []
+            C_local= []
 
             #liczenie 4 maceirzy jakobiego dla jednego elementu 
             for i in range(len(der_table_ksi)):
@@ -182,9 +188,11 @@ class DerivativeCoordinates:
                 jakobian.J1 = np.linalg.inv(jakobian.J)
                 element.jakobian.append(jakobian)
                 der_eta_ksi_row_num = i
-                H_local.append(self.calculateHMatrix(der_table_eta, der_table_ksi, jakobian, der_eta_ksi_row_num, conductivity, element))
-           
+                H_local.append(self.calculateHCMatrix(der_table_eta, der_table_ksi, jakobian, der_eta_ksi_row_num, conductivity, element, density, specific_heat)[0])
+                C_local.append(self.calculateHCMatrix(der_table_eta, der_table_ksi, jakobian, der_eta_ksi_row_num, conductivity, element, density, specific_heat)[1])
             element.H_local = H_local
+            element.C_local = C_local
+            print("C_local: ", element.C_local)
             #iloczyn kartezjański dla różnych wag dla 2d
             gauss_weights_2d = list(product(gauss_weights, repeat=2)) 
             
@@ -293,22 +301,35 @@ class DerivativeCoordinates:
                 P_global[i_global, 0] += P_local[i, 0]
         return P_global
 
-    def calculateHMatrix(self, der_table_eta, der_table_ksi, jakobian: Jakobian, der_eta_ksi_row_num, conductivity, element: Element):
+    # def calculateCMatrix(self, )
+
+    def calculateHCMatrix(self, der_table_eta, der_table_ksi, jakobian: Jakobian, der_eta_ksi_row_num, conductivity, element: Element, density, specific_heat):
         J1 = jakobian.J1
         derivatives_x = np.zeros((4, 1))
         derivatives_y = np.zeros((4, 1))
 
+        shape_functions = ShapeFunctions()
+        gauss_points = GaussPoints(self.N).gauss_points
+        
         #4 bo dla 2D tylko ksi i eta: 4 x dN_dksi, 4 x dN_deta, 
         for i in range(4):
-            #wiersz zgodny z "i" z petli wywołującej calculateHmatrix czyli liczba wierszy
+            #wiersz zgodny z "i" z petli wywołującej calculateHCmatrix czyli liczba wierszy
             dN_dksi = der_table_ksi[der_eta_ksi_row_num][i]
             dN_deta = der_table_eta[der_eta_ksi_row_num][i]
+
             #wzór na elementy pochodznych loklanych po funkcji kształtu
             dn_dx = J1[0][0] * dN_dksi + J1[0][1] * dN_deta
             derivatives_x[i] = dn_dx
             dn_dy = J1[1][0] * dN_dksi + J1[1][1] * dN_deta
             derivatives_y[i] = dn_dy
             element.der_table.append((derivatives_x.copy(), derivatives_y.copy()))
+            
+            N_shape_func = np.array(shape_functions.N_functions(gauss_points[i][0], gauss_points[i][1]))
+            
+            element.C_table.append(N_shape_func)
+        
+        print("C_table: ", element.C_table)
+            
 
         # print("Derivatives in x:")
         # print(derivatives_x)
@@ -319,11 +340,13 @@ class DerivativeCoordinates:
         dN_dy = derivatives_y.flatten()
 
         H_local = np.zeros((4,4))
+        C_local = np.zeros((4,4))
         for i in range(4):
             for j in range(4):
                 #pełny wzór na mceirz lokalna
                 H_local[i,j] = (dN_dx[i]*dN_dx[j] + dN_dy[i]*dN_dy[j]) * conductivity * abs(jakobian.detJ)
-        return H_local
+                C_local[i,j] = element.C_table[i] * element.C_table[j] * density * specific_heat * abs(jakobian.detJ)
+        return H_local, C_local
 
     def agregateHmatrix(self, elements, nodes):
         all_nodes_num = len(nodes)
