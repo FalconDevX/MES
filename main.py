@@ -14,7 +14,6 @@ def compute_t1(H, C, dtau, t0, P):
     print("t0: ", t0)
     print("P: ", P)
 
-    # Zrób z t0 wektor jeśli podano skalara
     if np.isscalar(t0):
         t0 = np.full(H.shape[0], t0)
 
