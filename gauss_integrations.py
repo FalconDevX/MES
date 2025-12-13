@@ -286,7 +286,7 @@ class DerivativeCoordinates:
                 element.P += P_local
                 #print("P_local: ", P_local)
                 element.Hbc += Hbc_local
-            #element.H += element.Hbc
+            element.H += element.Hbc
             # print("--------------------------------")
             # print("element.id: ", element.id)
             # print("element.Hbc: ", element.Hbc)
