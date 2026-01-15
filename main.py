@@ -1,8 +1,12 @@
 from file_parse import GlobalData
-from gauss_integrations import DerivativeCoordinates
+from mes import MesMatrixElements
 from class_types import SystemOfEquations
 
 import numpy as np
+
+test1 = "Test1_4_4.txt"
+test2 = "Test2_4_4_MixGrid.txt"
+test3 = "Test3_31_31_kwadrat.txt"
 
 def compute_t1(H, C, dtau, t0, P, return_matrices=False):
     H = np.array(H)
@@ -29,11 +33,6 @@ def compute_t1(H, C, dtau, t0, P, return_matrices=False):
     return t1
 
 def simulation(H_global, C_global, P_global, T0, SimulationTime, dt):
-    """
-    Wykonuje symulację czasową z wieloma krokami.
-    Wyświetla min i max temperaturę w każdym kroku.
-    Wyświetla macierze A i B w pierwszych dwóch iteracjach.
-    """
     T_old = T0.copy()
     num_steps = int(SimulationTime / dt)
     
@@ -49,13 +48,13 @@ def simulation(H_global, C_global, P_global, T0, SimulationTime, dt):
         T_new, A, B = compute_t1(H_global, C_global, dt, T_old, P_global, return_matrices=True)
         
         #Macierz A
-        print(f"\nInteration {step}")
-        print(f"H Matrix ([H]+[C]/dT)")
-        print(A)
+        # print(f"\nInteration {step}")
+        # print(f"H Matrix ([H]+[C]/dT)")
+        # print(A)
         
         #Macierz B
-        print(f"\nP_Vector (({{P}}+{{[C]/dT}}*{{TO}}))")
-        print(B.flatten())
+        # print(f"\nP_Vector (({{P}}+{{[C]/dT}}*{{TO}}))")
+        # print(B.flatten())
         T_new = compute_t1(H_global, C_global, dt, T_old, P_global)
         
         #Obliczanie min i max temperatury
@@ -70,16 +69,17 @@ def simulation(H_global, C_global, P_global, T0, SimulationTime, dt):
     return T_new
 
 if __name__ == "__main__":
-    data = GlobalData("Test1_4_4.txt")
+    data = GlobalData(test3)
     print("N:",data.N)
-    jacobian = DerivativeCoordinates(data.grid, data.Conductivity, data.N, data.BC, data.Alfa, data.Tot, data.Density, data.SpecificHeat)
+    mes = MesMatrixElements(data.grid, data.Conductivity, data.N, data.BC, data.Alfa, data.Tot, data.Density, data.SpecificHeat)
     
+    #mes.print_jakobian()
     # zamiana temperatury początkowej na wektor globalny
     num_nodes = len(data.nodes)
     T0 = np.full((num_nodes, 1), data.InitialTemp)
     
-    simulation(jacobian.H_global, jacobian.C_global, jacobian.P_global, T0, data.SimulationTime, data.SimulationStepTime)
-    # jacobian.print_jakobian()
+    simulation(mes.H_global, mes.C_global, mes.P_global, T0, data.SimulationTime, data.SimulationStepTime)
+    # mes.print_jakobian()
 
     # system_of_equations = SystemOfEquations(jacobian.H_global, jacobian.P_global)
     # system_of_equations.solve()

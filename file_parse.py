@@ -31,7 +31,7 @@ class GlobalData:
                 continue
 
             if line.startswith("IntegralScheme"):
-                self.N = float(line.split()[1])
+                self.N = int(line.split()[1])
             elif line.startswith("SimulationTime"):
                 self.SimulationTime = float(line.split()[1])
             elif line.startswith("SimulationStepTime"):

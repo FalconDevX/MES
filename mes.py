@@ -2,6 +2,7 @@ import numpy as np
 from itertools import product
 import inspect
 from class_types import Element, Grid, Jakobian
+np.set_printoptions(linewidth=200)
 
 class GaussTable:
     def __init__(self, N : int):
@@ -9,9 +10,6 @@ class GaussTable:
         self.nodes, self.weights = self.generate_gauss_table(N)
 
     def generate_gauss_table(self, N : int):
-        """
-            Returns Gauss–Legendre points and weights for the given N (1–4).
-        """
         if N == 1:
             x_k = [0.0]
             A_k = [2.0]
@@ -35,7 +33,7 @@ class GaussTable:
 
         return x_k, A_k
 
-#funkcje kształtu dla macierzy Hbc(całak powierzchniowa)
+#funkcje kształtu dla macierzy Hbc(całka powierzchniowa)
 class ShapeFunctions:
     def N_functions(self, ksi, eta):
         return np.array([
@@ -128,7 +126,7 @@ class DerivativeTable:
         return derivatives_ksi, derivatives_eta
 
 # obliczenia jakobianu 
-class DerivativeCoordinates:
+class MesMatrixElements:
     def __init__ (self, grid : Grid, conductivity, N, BC, alfa, Tot, density, specific_heat):
         der_table = DerivativeTable(N)
         self.alfa = alfa
@@ -147,10 +145,10 @@ class DerivativeCoordinates:
         self.P_global = self.agregateP(self.elements, self.nodes)
         self.C_global = self.agregateCmatrix(self.elements, self.nodes)
         
-        # print("Matrix H:")
-        # print(self.H_global)
-        # print("Matrix C:")
-        # print(self.C_global)
+        print("Matrix H:")
+        print(self.H_global)
+        print("Matrix C:")
+        print(self.C_global)
         # print()
         # print("Matrix P:")
         # print(self.P_global)
@@ -171,37 +169,73 @@ class DerivativeCoordinates:
                 node = nodes_map[node_id]
                 x_coords.append(node.x)
                 y_coords.append(node.y)        
-            H_local = []
-            C_local= []
+            element.H = np.zeros((4, 4))
             jakobians_table_for_C = []
 
-            #liczenie 4 maceirzy jakobiego dla jednego elementu 
-            for i in range(len(der_table_ksi)):
-                jakobian = Jakobian([],[],[])
-                
-                dx_dksi = sum(x_coords[j] * der_table_ksi[i][j] for j in range(4))
-                dy_dksi = sum(y_coords[j] * der_table_ksi[i][j] for j in range(4))
-                dx_deta = sum(x_coords[j] * der_table_eta[i][j] for j in range(4))
-                dy_deta = sum(y_coords[j] * der_table_eta[i][j] for j in range(4))
+            gauss_nodes = GaussTable(self.N).nodes
+            gauss_weights = GaussTable(self.N).weights
 
-                jakobian.J = np.array([[dx_dksi, dy_dksi],[dx_deta, dy_deta]])
+            gp = 0  # licznik punktów Gaussa 2D
 
-                jakobian.detJ = np.linalg.det(jakobian.J)
-                jakobian.J1 = np.linalg.inv(jakobian.J)
-                element.jakobian.append(jakobian)
-                der_eta_ksi_row_num = i
-                H_local_part = self.calculateHMatrix(der_table_eta, der_table_ksi, jakobian, der_eta_ksi_row_num, conductivity, element, density, specific_heat)
-                H_local.append(H_local_part)
-                jakobians_table_for_C.append(jakobian)
+            for i_eta in range(self.N):
+                for i_ksi in range(self.N):
 
-            element.H_local = H_local
-            #iloczyn kartezjański dla różnych wag dla 2d
-            gauss_weights_2d = list(product(gauss_weights, repeat=2)) 
-            #para elementów bo ksi i eta
-            
-            C_local = self.calculateCMatrix(jakobians_table_for_C, conductivity, density, specific_heat)
-            element.H = sum(H_local[i] * w_pair[0] * w_pair[1] for i, w_pair in enumerate(gauss_weights_2d))
-            element.C_local = sum(C_local[i] * w_pair[0] * w_pair[1] for i, w_pair in enumerate(gauss_weights_2d))
+                    jakobian = Jakobian([], [], [])
+
+                    dx_dksi = sum(x_coords[j] * der_table_ksi[gp][j] for j in range(4))
+                    dy_dksi = sum(y_coords[j] * der_table_ksi[gp][j] for j in range(4))
+                    dx_deta = sum(x_coords[j] * der_table_eta[gp][j] for j in range(4))
+                    dy_deta = sum(y_coords[j] * der_table_eta[gp][j] for j in range(4))
+
+                    jakobian.J = np.array([[dx_dksi, dy_dksi],
+                                           [dx_deta, dy_deta]])
+                    jakobian.detJ = np.linalg.det(jakobian.J)
+                    jakobian.J1 = np.linalg.inv(jakobian.J)
+                    element.jakobian.append(jakobian)
+
+                    jakobians_table_for_C.append(jakobian)
+
+                    H_gp = self.calculateHMatrix(
+                        der_table_eta,
+                        der_table_ksi,
+                        jakobian,
+                        gp,
+                        conductivity,
+                        element,
+                        density,
+                        specific_heat
+                    )
+
+                    w = gauss_weights[i_ksi] * gauss_weights[i_eta]
+
+                    element.H += H_gp * w
+
+                    gp += 1
+
+            element.C_local = np.zeros((4, 4))
+            gp = 0
+
+            for i_eta in range(self.N):
+                for i_ksi in range(self.N):
+
+                    N_shape = np.array(
+                        ShapeFunctions().N_functions(
+                            gauss_nodes[i_ksi],
+                            gauss_nodes[i_eta]
+                        )
+                    ).reshape(4, 1)
+
+                    C_gp = (
+                        N_shape @ N_shape.T
+                        * density
+                        * specific_heat
+                        * jakobians_table_for_C[gp].detJ
+                    )
+
+                    w = gauss_weights[i_ksi] * gauss_weights[i_eta]
+                    element.C_local += C_gp * w
+
+                    gp += 1
             # print("element.C_local: ", element.C_local)
             # print("elementy brzegowe")
 
@@ -213,7 +247,7 @@ class DerivativeCoordinates:
             gauss_weights = GaussTable(self.N).weights
 
             #gauss_points = [(ksi, eta) for eta in gauss_table for ksi in gauss_table]
-
+            
             ksi_eta_edge_points = {
                 # dla pierwszej krawedzi[( -1/√3 , -1 ),(  1/√3 , -1 )]
                 1: [(ksi, -1) for ksi in gauss_nodes],   
@@ -255,15 +289,6 @@ class DerivativeCoordinates:
                 edge_id = bd_edge[2]
                 edge_points = ksi_eta_edge_points[edge_id]       
                 # print("edge_points: ", edge_points)
-                #pc1 , pc2 dwa punkty na tej samej krawędzi 
-                pc1 = np.array(shape_functions.N_functions(edge_points[0][0], edge_points[0][1])).reshape(4,1)
-                pc2 = np.array(shape_functions.N_functions(edge_points[1][0], edge_points[1][1])).reshape(4,1)
-                # print("pc1: ", pc1)
-                # print("pc2: ", pc2)
-                #iloczyn wektorowy
-                H_pc1 = pc1 @ pc1.T   
-                H_pc2 = pc2 @ pc2.T   
-
                 #liczenie jakobianu na krawedzi 
                 id1, id2, edge_id = bd_edge
                 #uzyskiwanie współrzędnych węzłów na podstawie numeru węzła
@@ -274,18 +299,18 @@ class DerivativeCoordinates:
                 dy = p2_coord.y - p1_coord.y
                 J_edge = np.sqrt(dx*dx + dy*dy) / 2
 
-                # print("H_pc1: ", H_pc1 * gauss_weights[0] * alfa * J_edge)
-                # print("H_pc2: ", H_pc2 * gauss_weights[1] * alfa * J_edge)
-
-                Hbc_local = alfa * (H_pc1 * gauss_weights[0] + H_pc2 * gauss_weights[1]) * J_edge
-                # print("Hbc_local: ", Hbc_local)
                 Tot = np.array(Tot)
-                #liczenie macierzy P
 
-                P_local = alfa * (pc1 * Tot * gauss_weights[0] + pc2 * Tot * gauss_weights[1]) * J_edge
-                element.P += P_local
-                #print("P_local: ", P_local)
-                element.Hbc += Hbc_local
+                for gp in range(self.N):
+                    ksi, eta = edge_points[gp]
+                    w = gauss_weights[gp]
+
+                    N = np.array(
+                        shape_functions.N_functions(ksi, eta)
+                    ).reshape(4, 1)
+
+                    element.Hbc += alfa * (N @ N.T) * w * J_edge
+                    element.P   += alfa * N * Tot * w * J_edge
             element.H += element.Hbc
             # print("--------------------------------")
             # print("element.id: ", element.id)
@@ -404,9 +429,9 @@ class DerivativeCoordinates:
             print(f"{GREEN} Element ID:{RESET} {element.id}")
             print(f"    {GREEN}H{RESET}:\n{element.H}")
             print(f"    {GREEN}Hbc{RESET}:\n{element.Hbc}")
-            # for i, jakobian in enumerate(element.jakobian):
+            for i, jakobian in enumerate(element.jakobian):
             #     print(f"  {CYAN}Gauss point {i+1}:{RESET}")
-            #     print(f"    {GREEN}J{RESET}:\n{jakobian.J}")
+                  print(f"    {GREEN}J{RESET}:\n{jakobian.J}")
             #     print(f"    {BLUE}detJ{RESET}: {jakobian.detJ}")
             #     print(f"    {MAGENTA}J1{RESET}:\n{jakobian.J1}")
             #     print()
