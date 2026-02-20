@@ -1,4 +1,4 @@
-# MES — 2D Transient Heat Conduction FEM Solver
+# MES - 2D Transient Heat Conduction FEM Solver
 
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![NumPy](https://img.shields.io/badge/NumPy-1.20+-green.svg)](https://numpy.org/)
@@ -11,13 +11,13 @@ A **Finite Element Method (FEM)** solver for 2D transient heat conduction with q
 
 ## Features
 
-- **2D heat equation** — Transient conduction with capacity matrix **C**, conductivity matrix **H**, and load vector **P**
-- **Quadrilateral mesh** — 4-node isoparametric elements (DC2D4)
-- **Gauss integration** — 1–4 integration points (configurable via input)
-- **Boundary conditions** — Robin (convection) on edges: \( q = \alpha(T - T_{ot}) \)
-- **Implicit time stepping** — Backward Euler: \( (H + C/\Delta\tau)\,T^{n+1} = C/\Delta\tau\,T^n + P \)
-- **Input format** — Simple text mesh files (nodes, elements, material/simulation parameters)
-- **Visualization** — Optional heatmap of temperature field via Matplotlib
+- **2D heat equation** - Transient conduction with capacity matrix **C**, conductivity matrix **H**, and load vector **P**
+- **Quadrilateral mesh** - 4-node isoparametric elements (DC2D4)
+- **Gauss integration** - 1-4 integration points (configurable via input)
+- **Boundary conditions** - Robin (convection) on edges: $q = \alpha(T - T_{ot})$
+- **Implicit time stepping** - Backward Euler: $(H + C/\Delta\tau)\,T^{n+1} = C/\Delta\tau\,T^n + P$
+- **Input format** - Simple text mesh files (nodes, elements, material/simulation parameters)
+- **Visualization** - Optional heatmap of temperature field via Matplotlib
 
 ---
 
@@ -101,9 +101,9 @@ Mesh and simulation parameters are read from a text file with the following stru
 
 Then:
 
-- **\*Node** — Lines: `id, x, y`
-- **\*Element, type=DC2D4** — Lines: `id, n1, n2, n3, n4` (node IDs)
-- **\*BC** — Comma-separated node IDs on the boundary (Robin BC)
+- **\*Node** - Lines: `id, x, y`
+- **\*Element, type=DC2D4** - Lines: `id, n1, n2, n3, n4` (node IDs)
+- **\*BC** - Comma-separated node IDs on the boundary (Robin BC)
 
 Example:
 
@@ -153,13 +153,13 @@ MES/
 
 ## Theory (short)
 
-- **PDE:** \( \rho c_p \frac{\partial T}{\partial t} = k \nabla^2 T + \dot{q} \), with convection on boundary.
-- **Weak form** leads to \( C \dot{T} + H T = P \).
-- **Time discretization:** backward Euler → \( (H + C/\Delta\tau) T^{n+1} = (C/\Delta\tau) T^n + P \).
+- **PDE:** $\rho c_p \frac{\partial T}{\partial t} = k \nabla^2 T + \dot{q}$, with convection on boundary.
+- **Weak form** leads to $C \dot{T} + H T = P$.
+- **Time discretization:** backward Euler → $(H + C/\Delta\tau) T^{n+1} = (C/\Delta\tau) T^n + P$.
 - **H** and **Hbc** (boundary) from element conductivity and convection; **C** from capacity; **P** from boundary flux. All assembled from 4-node quadrilateral elements with Gauss quadrature.
 
 ---
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
+MIT License - see [LICENSE](LICENSE) for details.
