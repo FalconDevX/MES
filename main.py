@@ -1,12 +1,14 @@
 from file_parse import GlobalData
 from mes import MesMatrixElements
 from class_types import SystemOfEquations
+from heatmap import plot_heatmap
 
 import numpy as np
 
 test1 = "Test1_4_4.txt"
 test2 = "Test2_4_4_MixGrid.txt"
 test3 = "Test3_31_31_kwadrat.txt"
+test4 = "mesh_100x100.txt"
 
 def compute_t1(H, C, dtau, t0, P, return_matrices=False):
     H = np.array(H)
@@ -47,6 +49,8 @@ def simulation(H_global, C_global, P_global, T0, SimulationTime, dt):
         
         T_new, A, B = compute_t1(H_global, C_global, dt, T_old, P_global, return_matrices=True)
         
+        #plot_heatmap(data.grid, T_new)
+
         #Macierz A
         # print(f"\nInteration {step}")
         # print(f"H Matrix ([H]+[C]/dT)")
@@ -55,7 +59,7 @@ def simulation(H_global, C_global, P_global, T0, SimulationTime, dt):
         #Macierz B
         # print(f"\nP_Vector (({{P}}+{{[C]/dT}}*{{TO}}))")
         # print(B.flatten())
-        T_new = compute_t1(H_global, C_global, dt, T_old, P_global)
+        # T_new = compute_t1(H_global, C_global, dt, T_old, P_global)
         
         #Obliczanie min i max temperatury
         min_temp = np.min(T_new)
@@ -69,7 +73,7 @@ def simulation(H_global, C_global, P_global, T0, SimulationTime, dt):
     return T_new
 
 if __name__ == "__main__":
-    data = GlobalData(test3)
+    data = GlobalData(test2)
     print("N:",data.N)
     mes = MesMatrixElements(data.grid, data.Conductivity, data.N, data.BC, data.Alfa, data.Tot, data.Density, data.SpecificHeat)
     

@@ -195,16 +195,7 @@ class MesMatrixElements:
 
                     jakobians_table_for_C.append(jakobian)
 
-                    H_gp = self.calculateHMatrix(
-                        der_table_eta,
-                        der_table_ksi,
-                        jakobian,
-                        gp,
-                        conductivity,
-                        element,
-                        density,
-                        specific_heat
-                    )
+                    H_gp = self.calculateHMatrix( der_table_eta, der_table_ksi, jakobian, gp, conductivity, element, density, specific_heat )
 
                     w = gauss_weights[i_ksi] * gauss_weights[i_eta]
 
@@ -305,10 +296,8 @@ class MesMatrixElements:
                     ksi, eta = edge_points[gp]
                     w = gauss_weights[gp]
 
-                    N = np.array(
-                        shape_functions.N_functions(ksi, eta)
-                    ).reshape(4, 1)
-
+                    N = np.array( shape_functions.N_functions(ksi, eta) ).reshape(4, 1)
+                    
                     element.Hbc += alfa * (N @ N.T) * w * J_edge
                     element.P   += alfa * N * Tot * w * J_edge
             element.H += element.Hbc
