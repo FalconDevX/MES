@@ -151,7 +151,7 @@ MES/
 
 ---
 
-## Theory (short)
+## Short Theory
 
 - **PDE:** $\rho c_p \frac{\partial T}{\partial t} = k \nabla^2 T + \dot{q}$, with convection on boundary.
 - **Weak form** leads to $C \dot{T} + H T = P$.
