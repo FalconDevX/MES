@@ -175,7 +175,7 @@ class MesMatrixElements:
             gauss_nodes = GaussTable(self.N).nodes
             gauss_weights = GaussTable(self.N).weights
 
-            gp = 0  # licznik punktów Gaussa 2D
+            gp = 0 
 
             for i_eta in range(self.N):
                 for i_ksi in range(self.N):
@@ -225,12 +225,7 @@ class MesMatrixElements:
                         )
                     ).reshape(4, 1)
 
-                    C_gp = (
-                        N_shape @ N_shape.T
-                        * density
-                        * specific_heat
-                        * jakobians_table_for_C[gp].detJ
-                    )
+                    C_gp = ( N_shape @ N_shape.T * density * specific_heat * jakobians_table_for_C[gp].detJ )
 
                     w = gauss_weights[i_ksi] * gauss_weights[i_eta]
                     element.C_local += C_gp * w
@@ -281,7 +276,7 @@ class MesMatrixElements:
 
             element.P = np.zeros((4,1))
 
-            #część właściwa obliczania macierzy Hbc
+            #wlasciwa czesc obliczania macierzy Hbc
             for bd_edge in boundary_edges:
                 # id1 0 id2 0 edge_id 1
                 # print("bd_edge: ", bd_edge)
